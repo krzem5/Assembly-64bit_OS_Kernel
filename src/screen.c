@@ -5,6 +5,13 @@
 
 uint8_t _vmem_x=0;
 uint8_t _vmem_y=0;
+uint8_t _ps=SCREEN_BG_COLOR_BLACK|SCREEN_FG_COLOR_WHITE;
+
+
+
+void init_screen(uint8_t vs){
+	_vmem_y=vs;
+}
 
 
 
@@ -12,7 +19,7 @@ void print_char(char c){
 	bool cs=false;
 	if (c=='\n'){
 		_vmem_y++;
-		if (_vmem_y==SCREEN_MAX_COLS){
+		if (_vmem_y==SCREEN_MAX_ROWS){
 			cs=true;
 		}
 	}
@@ -21,12 +28,13 @@ void print_char(char c){
 	}
 	else{
 		*(SCREEN_MEM_ADDR+(_vmem_y*SCREEN_MAX_COLS+_vmem_x)*2)=c;
-		*(SCREEN_MEM_ADDR+(_vmem_y*SCREEN_MAX_COLS+_vmem_x)*2+1)=0x0f;
+		*(SCREEN_MEM_ADDR+(_vmem_y*SCREEN_MAX_COLS+_vmem_x)*2+1)=_ps;
 		_vmem_x++;
 		if (_vmem_x==SCREEN_MAX_COLS){
 			_vmem_x=0;
 			_vmem_y++;
-			if (_vmem_y==SCREEN_MAX_COLS){
+			*(SCREEN_MEM_ADDR+2)=_vmem_y+48;
+			if (_vmem_y==SCREEN_MAX_ROWS){
 				cs=true;
 			}
 		}
@@ -38,7 +46,7 @@ void print_char(char c){
 		}
 		for (uint16_t i=SCREEN_MAX_COLS*(SCREEN_MAX_ROWS-1)*2;i<SCREEN_MAX_COLS*SCREEN_MAX_ROWS*2;i+=2){
 			*(SCREEN_MEM_ADDR+i)=' ';
-			*(SCREEN_MEM_ADDR+i+1)=0x0f;
+			*(SCREEN_MEM_ADDR+i+1)=SCREEN_BG_COLOR_BLACK|SCREEN_FG_COLOR_WHITE;
 		}
 	}
 }
@@ -46,7 +54,7 @@ void print_char(char c){
 
 
 void print(char* s){
-	while (*s!=0){
+	while (*s){
 		print_char(*s);
 		s++;
 	}
@@ -136,6 +144,33 @@ void print_uint32(uint32_t v){
 
 
 
+void print_uint64(uint64_t v){
+	if (v==0){
+		print_char('0');
+	}
+	else{
+		uint8_t sz=1;
+		uint64_t pw=10;
+		while (pw<v+1){
+			sz++;
+			if (sz==20){
+				break;
+			}
+			pw*=10;
+		}
+		if (sz!=20){
+			pw/=10;
+		}
+		while (sz>0){
+			print_char(48+(v/pw)%10);
+			sz--;
+			pw/=10;
+		}
+	}
+}
+
+
+
 void print_hex8(uint8_t p){
 	for (signed char i=4;i>=0;i-=4){
 		unsigned char v=(p>>i)%16;
@@ -150,11 +185,26 @@ void print_hex8(uint8_t p){
 
 
 
+void set_print_style(uint8_t s){
+	_ps=s;
+}
+
+
+
 void clear_screen(void){
 	for (uint16_t i=0;i<SCREEN_MAX_COLS*SCREEN_MAX_ROWS*2;i+=2){
 		*(SCREEN_MEM_ADDR+i)=' ';
-		*(SCREEN_MEM_ADDR+i+1)=0x0f;
+		*(SCREEN_MEM_ADDR+i+1)=SCREEN_BG_COLOR_BLACK|SCREEN_FG_COLOR_WHITE;
 	}
 	_vmem_x=0;
 	_vmem_y=0;
+}
+
+
+
+void ensure_start_line(void){
+	if (_vmem_x!=0){
+		print_char('\r');
+		print_char('\n');
+	}
 }

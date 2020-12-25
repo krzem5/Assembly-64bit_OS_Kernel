@@ -1,10 +1,11 @@
 [org 0x500]
-%define DATA_ACIP_ID word [DATA]
-%define DATA_MMAP_LEN word [DATA+2]
-%define DATA_DATE dword [DATA+4]
-%define DATA_TIME dword [DATA+8]
-%define DATA_MMAP_PTR (DATA+12)
-%define KERNEL_MEM_ADDR 0x00100000
+%define DATA_VERTICAL_SROLL byte [DATA]
+%define DATA_ACIP_ID word [DATA+1]
+%define DATA_MMAP_LEN word [DATA+3]
+%define DATA_DATE dword [DATA+5]
+%define DATA_TIME dword [DATA+9]
+%define DATA_MMAP_PTR (DATA+13)
+%define KERNEL_MEM_ADDR 0x100000
 section .text
 	bits 16
 	align 4
@@ -27,7 +28,7 @@ section .text
 		mov dx, 0x00
 		int 0x10
 		mov byte [dsp_x], 0
-		mov byte [dsp_y], 0
+		mov DATA_VERTICAL_SROLL, 0
 		mov bx, REAL_MODE_START
 		call ._print
 		mov bx, INIT_KEYBOARD
@@ -67,6 +68,26 @@ section .text
 		call ._print
 		jmp $
 	._a20_ok:
+		mov bx, CHECK_CPUID_EXTENDED
+		call ._print
+		mov eax, 0x80000000
+		cpuid
+		cmp eax, 0x80000001
+		jnb ._check_long_mode
+		mov bx, EXTENDED_CPUID_NOT_AVAIBLE
+		call ._print
+		jmp $
+	._check_long_mode:
+		mov bx, CHECK_LONG_MODE
+		call ._print
+		mov eax, 0x80000001
+		cpuid
+		test edx, 0x20000000
+		jnz ._read_mem_map
+		mov bx, LONG_MODE_NOT_SUPPORTED
+		call ._print
+		jmp $
+	._read_mem_map:
 		mov bx, READING_MEMORY_MAP
 		call ._print
 		xor ebx, ebx
@@ -74,13 +95,12 @@ section .text
 		mov di, DATA_MMAP_PTR
 		clc
 	._mem_map_next:
-		xor eax, eax
-		mov ax, 0xe820
-		mov ecx, 0x14
-		mov edx, 0x534D4150
+		mov eax, 0xe820
+		mov ecx, 0x18
+		mov edx, 0x534d4150
 		int 0x15
 		jc ._mem_map_end
-		cmp eax, 0x534D4150
+		cmp eax, 0x534d4150
 		jne ._mem_map_end
 		cmp ecx, 0x14
 		jne ._mem_map_err
@@ -146,10 +166,13 @@ section .text
 		mov eax, cr0
 		or eax, 0x1
 		mov cr0, eax
-		jmp (gdt_code-gdt_start):._start32
+		jmp (gdt_code-gdt_start):_start32
 	._mem_map_nxt:
 		cmp dword [di+16], 1
+		je ._mem_map_nxt_ok
+		cmp dword [di+16], 3
 		jne ._mem_map_next_rep
+	._mem_map_nxt_ok:
 		add di, 0x10
 		inc DATA_MMAP_LEN
 		jmp ._mem_map_next_rep
@@ -189,12 +212,12 @@ section .text
 		jmp ._print_chr
 	._print_nlcr:
 		mov byte [dsp_x], 0
-		inc byte [dsp_y]
+		inc DATA_VERTICAL_SROLL
 		jmp ._print_chr
 	._print_nl:
-		cmp byte [dsp_y], VIDEO_MEM_MAX_ROWS
+		cmp DATA_VERTICAL_SROLL, VIDEO_MEM_MAX_ROWS
 		je ._print_chr
-		inc byte [dsp_y]
+		inc DATA_VERTICAL_SROLL
 		jmp ._print_chr
 	._print_cr:
 		mov byte [dsp_x], 0
@@ -229,7 +252,7 @@ section .text
 		ret
 	._print_int16_nlcr:
 		mov byte [dsp_x], 0
-		inc byte [dsp_y]
+		inc DATA_VERTICAL_SROLL
 		jmp ._print_int16_chr_fi
 	._print_hex32:
 		pusha
@@ -259,7 +282,7 @@ section .text
 		add al, 0x31
 		jmp ._print_hex32_chr_fi
 	bits 32
-	._start32:
+	_start32:
 		mov ax, (gdt_data-gdt_start)
 		mov ds, ax
 		mov ss, ax
@@ -269,7 +292,7 @@ section .text
 		mov ebp, STACK_TOP
 		mov esp, ebp
 		xor edx, edx
-		mov dl, byte [dsp_y]
+		mov dl, DATA_VERTICAL_SROLL
 		shl edx, 5
 		xor eax, eax
 		mov al, byte [dsp_x]
@@ -286,10 +309,42 @@ section .text
 		mov edi, KERNEL_MEM_ADDR
 		mov ecx, ((__KERNEL_SZ__+3)/4)
 		rep movsd
-		mov ebx, START_KERNEL
+		mov ebx, PAGING_SETUP
 		call ._print32
-		call KERNEL_MEM_ADDR
+		mov edi, 0x1000
+		mov cr3, edi
+		xor eax, eax
+		mov ecx, 0xc00
+		rep stosd
+		mov ebx, PAGING_MAP
+		call ._print32
+		mov dword [0x1000], 0x00002003
+		mov dword [0x1ff8], 0x00003003
+		mov dword [0x2000], 0x00000083
+		mov dword [0x3ff8], 0x00000083
+		mov eax, cr4
+		or eax, 0x20
+		mov cr4, eax
+		mov eax, 0x7
+		xor ecx, ecx
+		cpuid
+		test ecx, 0x10000
+		jz ._setup_long_mode
+		mov ebx, LEVEL_5_PAGING_AVAIBLE
+		call ._print32
 		jmp $
+	._setup_long_mode:
+		mov ebx, SETUP_LONG_MODE_START_KERNEL
+		call ._print32
+		mov ecx, 0xc0000080
+		rdmsr
+		or eax, 0x100
+		wrmsr
+		mov eax, cr0
+		or eax, 0x80000000
+		mov cr0, eax
+		lgdt [gdt64_pointer]
+		jmp gdt64_code:_start_64
 	._print32:
 		pusha
 		mov edx, dword [dsp_ptr]
@@ -311,21 +366,21 @@ section .text
 		jmp ._print32_chr
 	._print32_nlcr:
 		mov byte [dsp_x], 0
-		inc byte [dsp_y]
+		inc DATA_VERTICAL_SROLL
 		jmp ._print32_schk
 	._print32_nl:
 		inc ebx
 		add edx, VIDEO_MEM_COLS
 		add edx, VIDEO_MEM_COLS
-		cmp byte [dsp_y], VIDEO_MEM_MAX_ROWS
+		cmp DATA_VERTICAL_SROLL, VIDEO_MEM_MAX_ROWS
 		je ._print32_schk
-		inc byte [dsp_y]
+		inc DATA_VERTICAL_SROLL
 		jmp ._print32_chr
 	._print32_cr:
 		inc ebx
 		mov byte [dsp_x], 0
 		xor edx, edx
-		mov dl, byte [dsp_y]
+		mov dl, DATA_VERTICAL_SROLL
 		shl edx, 5
 		mov eax, edx
 		shl edx, 2
@@ -342,18 +397,98 @@ section .text
 		mov dword [dsp_ptr], edx
 		popa
 		ret
+	bits 64
+	_start_64:
+		cli
+		mov ax, gdt64_data
+		mov ds, ax
+		mov es, ax
+		mov fs, ax
+		mov gs, ax
+		mov ss, ax
+		jmp KERNEL_MEM_ADDR
+	; ._print64:
+	; 	push ax
+	; 	push rbx
+	; 	push rcx
+	; 	push rdx
+	; 	push rsi
+	; 	push rdi
+	; 	mov edx, dword [dsp_ptr]
+	; ._print64_chr:
+	; 	mov al, [rbx]
+	; 	mov ah, VIDEO_MEM_WHITE_ON_BLACK
+	; 	cmp al, 0
+	; 	je ._print64_end
+	; 	cmp al, 0x0a
+	; 	je ._print64_nl
+	; 	cmp al, 0x0d
+	; 	je ._print64_cr
+	; 	mov [edx], ax
+	; 	inc rbx
+	; 	add edx, 2
+	; 	inc byte [dsp_x]
+	; 	cmp byte [dsp_x], VIDEO_MEM_COLS
+	; 	je ._print64_nlcr
+	; 	jmp ._print64_chr
+	; ._print64_nlcr:
+	; 	mov byte [dsp_x], 0
+	; 	inc DATA_VERTICAL_SROLL
+	; 	jmp ._print64_schk
+	; ._print64_nl:
+	; 	inc rbx
+	; 	add edx, VIDEO_MEM_COLS
+	; 	add edx, VIDEO_MEM_COLS
+	; 	cmp DATA_VERTICAL_SROLL, VIDEO_MEM_MAX_ROWS
+	; 	je ._print64_schk
+	; 	inc DATA_VERTICAL_SROLL
+	; 	jmp ._print64_chr
+	; ._print64_cr:
+	; 	inc rbx
+	; 	mov byte [dsp_x], 0
+	; 	xor edx, edx
+	; 	mov dl, DATA_VERTICAL_SROLL
+	; 	shl edx, 5
+	; 	mov eax, edx
+	; 	shl edx, 2
+	; 	add edx, eax
+	; 	add edx, VIDEO_MEM_PTR
+	; 	jmp ._print64_chr
+	; ._print64_schk:
+	; 	mov esi, VIDEO_MEM_PTR+160
+	; 	mov edi, VIDEO_MEM_PTR
+	; 	mov ecx, 480
+	; 	rep movsq
+	; 	jmp ._print64_chr
+	; ._print64_end:
+	; 	mov dword [dsp_ptr], edx
+	; 	pop rdi
+	; 	pop rsi
+	; 	pop rdx
+	; 	pop rcx
+	; 	pop rbx
+	; 	pop ax
+	; 	ret
 section .data
 	boot_drv: db 0x00
 	mmap_tmp_len: dw 0x0000
 	dsp_x: db 0x00
-	dsp_y: db 0x00
 	dsp_ptr: dw 0x0000
 	gdt_start: dq 0x0000000000000000
 	gdt_code: dq 0x00cf9a000000ffff
 	gdt_data: dq 0x00cf92000000ffff
 	gdt_descriptor:
-		dw $-gdt_start
+		dw $-gdt_start-1
 		dd gdt_start
+	gdt64_start:
+		dq 0x000100000000ffff
+	gdt64_code: equ $-gdt64_start
+		dq 0x00af9a0000000000
+	gdt64_data: equ $-gdt64_start
+		dq 0x0000920000000000
+	gdt64_pointer:
+		dw $-gdt64_start-1
+		dq gdt64_start
 section .rdata
 	VIDEO_MEM_PTR equ 0xb8000
 	VIDEO_MEM_MAX_ROWS equ 24
@@ -367,9 +502,11 @@ section .rdata
 	CPU_NO_PAE: db "CPU doesn't support PAE",10,13,0
 	ENABLE_A20: db "Enabling A20...",10,13,0
 	ENABLE_A20_FAIL: db "Failed to Enable A20",10,13,0
+	CHECK_CPUID_EXTENDED: db "Checking Extended CPUID Functions...",10,13,0
+	EXTENDED_CPUID_NOT_AVAIBLE: db "Extended CPUID Functions Not Supported",10,13,0
+	CHECK_LONG_MODE: db "Checking Long Mode Support...",10,13,0
+	LONG_MODE_NOT_SUPPORTED: db "Long Mode not Supported",10,13,0
 	READING_MEMORY_MAP: db "Reading Memory Layout...",10,13,0
-	MEM_MAP_HEADER: db "Memory Map (",0
-	MEM_MAP_HEADER2: db " chunks):",10,13,0
 	READING_TIME: db "Reading Time Data...",10,13,0
 	PCI_SUPPORT_CHECK: db "Checking PCI Support...",10,13,0
 	PCI_NOT_SUPPORTED: db "PCI Not Suported",10,13,0
@@ -380,11 +517,11 @@ section .rdata
 	SWITCHING_TO_32BIT: db "Switching to 32-bit Protected Mode...",10,13,0
 	PROTECTED_MODE_START: db "Starting Bootloader in 32-bit Protected Mode...",10,13,0
 	REALLOC_KERNEL: db "Reallocating Kernel to 1MB...",10,13,0
-	; SETUP_PAGING: db "Setting Up Paging...",10,13,0
-	; ENABLE_PAGING: db "Enabling Paging...",10,13,0
-	START_KERNEL: db "Starting Kernel...",10,13,0
-	INTERNAL_DATA_START equ 0x3000
-	STACK_BOTTOM equ 0x3000
+	PAGING_SETUP: db "Setting Up Paging...",10,13,0
+	PAGING_MAP: db "Mapping Address Range 0 - 3fffffff to ffffffffc0000000 - ffffffffffffffff...",10,13,0
+	LEVEL_5_PAGING_AVAIBLE: db "Level 5 Paging is Avaible!",10,13,0
+	SETUP_LONG_MODE_START_KERNEL: db "Setting Up Long Mode and Starting Kernel...",10,13,0
+	STACK_BOTTOM equ 0x4000
 	STACK_TOP equ 0x7000
 	DATA equ 0x7000
 	BOOTLOADER_END equ $
