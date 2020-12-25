@@ -1,7 +1,7 @@
 ### Github File Push Config
 
-name=Assembly-32bit_OS_Kernel
-desc=Assembly-32bit_OS_Kernel
+name=Assembly-64bit_OS_Kernel
+desc=Assembly-64bit_OS_Kernel
 public=true
 homepage=
 license=mit

@@ -25,8 +25,8 @@ for r,_,fl in os.walk("src"):
 			if (subprocess.run(["C:\\ProgramFiles\\Cygwin\\bin\\gcc.exe","-mcmodel=large","-mno-red-zone","-mno-mmx","-mno-sse","-mno-sse2","-fno-common","-m64","-Wall","-Werror","-fpic","-ffreestanding","-fno-stack-protector","-nostdinc","-nostdlib","-c",ntpath.join(r,f),"-o",f"build\\c\\{ntpath.join(r,f)[4:-2].replace(chr(92),'/').replace('/','$')}.o","-Isrc\\include"]).returncode!=0 or subprocess.run(["C:\\ProgramFiles\\Cygwin\\bin\\strip.exe","-R",".rdata$zzz","--keep-file-symbols","--strip-debug","--strip-unneeded","--discard-locals",f"build\\c\\{ntpath.join(r,f)[4:-2].replace(chr(92),'/').replace('/','$')}.o"]).returncode!=0):
 				quit()
 			k_fl+=[f"build\\c\\{ntpath.join(r,f)[4:-2].replace(chr(92),'/').replace('/','$')}.o"]
-if (subprocess.run(["C:\\ProgramFiles\\Cygwin\\bin\\ld.exe","-melf_x86_64","-o","build.bin","-T","linker.ld","--oformat","binary"]+a_fl+k_fl).returncode==0):
-	with open("build.bin","rb") as bf:
+if (subprocess.run(["C:\\ProgramFiles\\Cygwin\\bin\\ld.exe","-melf_x86_64","-o","build\\build.bin","-T","linker.ld","--oformat","binary"]+a_fl+k_fl).returncode==0):
+	with open("build\\build.bin","rb") as bf:
 		kln=len(bf.read())
 	with open("build\\_tmp_bl.asm","w") as wf,open("src\\asm\\bootloader.asm","r") as rf:
 			wf.write(f"%define __KERNEL_SZ__ {kln}\n%line 0 src\\asm\\bootloader.asm\n")
@@ -42,7 +42,7 @@ if (subprocess.run(["C:\\ProgramFiles\\Cygwin\\bin\\ld.exe","-melf_x86_64","-o",
 			wf.write(f"%define __BOOTLOADER_SZ__ {bln}\n%line 0 src\\asm\\bootloader_init.asm\n")
 			wf.write(rf.read())
 		if (subprocess.run(["C:\\Program Files\\NASM\\nasm.exe","build\\_tmp_bli.asm","-f","bin","-Wall","-Werror","-o","build\\bootloader_init.bin"]).returncode==0):
-			with open("build\\bootloader_init.bin","rb") as bif,open("build\\bootloader.bin","rb") as bf,open("build.bin","rb") as kf,open("build\\os.bin","wb") as wf:
+			with open("build\\bootloader_init.bin","rb") as bif,open("build\\bootloader.bin","rb") as bf,open("build\\build.bin","rb") as kf,open("build\\os.bin","wb") as wf:
 				wf.write(bif.read())
 				wf.write(bf.read())
 				wf.write(kf.read())
