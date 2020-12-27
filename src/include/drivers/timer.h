@@ -8,4 +8,16 @@ void setup_timer(void);
 
 
 
+uint64_t get_milliseconds(void);
+
+
+
+uint64_t get_seconds(void);
+
+
+
+uint64_t get_frequency(void);
+
+
+
 #endif

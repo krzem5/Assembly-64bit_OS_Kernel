@@ -4,7 +4,7 @@
 %define DATA_MMAP_LEN word [DATA+3]
 %define DATA_DATE dword [DATA+5]
 %define DATA_TIME dword [DATA+9]
-%define DATA_MMAP_PTR (DATA+13)
+%define DATA_MMAP_PTR (DATA+12)
 %define KERNEL_MEM_ADDR 0x100000
 section .text
 	bits 16
@@ -197,7 +197,7 @@ section .text
 		pusha
 		mov ah, 0x0e
 	._print_chr:
-		mov al, [bx]
+		mov al, byte [bx]
 		cmp al, 0
 		je ._print_end
 		int 0x10
@@ -349,7 +349,7 @@ section .text
 		pusha
 		mov edx, dword [dsp_ptr]
 	._print32_chr:
-		mov al, [ebx]
+		mov al, byte [ebx]
 		mov ah, VIDEO_MEM_WHITE_ON_BLACK
 		cmp al, 0
 		je ._print32_end
@@ -474,6 +474,50 @@ section .data
 	mmap_tmp_len: dw 0x0000
 	dsp_x: db 0x00
 	dsp_ptr: dw 0x0000
+	vesa:
+	.sig: dd 0x00000000
+	.ver: dw 0x0000
+	.ptr0: dw 0x0000
+	.ptr1: dw 0x0000
+	.cap0: db 0x00
+	.cap1: db 0x00
+	.vm0: dw 0x0000
+	.vm1: dw 0x0000
+	.mem: dw 0x0000
+	vesa_mode:
+	.attr: dw 0x0000
+	.winA: db 0x00
+	.winB: db 0x00
+	.gr: dw 0x0000
+	.wsz: dw 0x0000
+	.segA: dw 0x0000
+	.segB: dw 0x0000
+	.fptr: dd 0x00000000
+	.pt: dw 0x0000
+	.xres: dw 0x0000
+	.yres: dw 0x0000
+	.xcsz: db 0x00
+	.ycsz: db 0x00
+	.pn: db 0x00
+	.bpp: db 0x00
+	.bn: db 0x00
+	.mm: db 0x00
+	.bsz: db 0x00
+	.ipn: db 0x00
+		db 0x00
+	.rmsz: db 0x00
+	.ro: db 0x00
+	.gmsz: db 0x00
+	.go: db 0x00
+	.bmsz: db 0x00
+	.bo: db 0x00
+	.rsvmsz: db 0x00
+	.rsvo: db 0x00
+	.dca: db 0x00
+	.pb: dd 0x00000000
+		dd 0x00000000
+		dw 0x0000
+	vesa_m: dd 0x0000
 	gdt_start: dq 0x0000000000000000
 	gdt_code: dq 0x00cf9a000000ffff
 	gdt_data: dq 0x00cf92000000ffff
@@ -521,6 +565,7 @@ section .rdata
 	PAGING_MAP: db "Mapping Address Range 0 - 3fffffff to ffffffffc0000000 - ffffffffffffffff...",10,13,0
 	LEVEL_5_PAGING_AVAIBLE: db "Level 5 Paging is Avaible!",10,13,0
 	SETUP_LONG_MODE_START_KERNEL: db "Setting Up Long Mode and Starting Kernel...",10,13,0
+	VESA_TMP_MEM equ 0x1000
 	STACK_BOTTOM equ 0x4000
 	STACK_TOP equ 0x7000
 	DATA equ 0x7000

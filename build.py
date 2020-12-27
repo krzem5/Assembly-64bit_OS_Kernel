@@ -60,4 +60,4 @@ if (subprocess.run(["C:\\ProgramFiles\\Cygwin\\bin\\ld.exe","-melf_x86_64","-o",
 					os.rmdir(f"build\\{k}")
 				if (subprocess.run(["qemu-img","create","-f","qcow2","build\\hdd.qcow2","10G"]).returncode==0):
 					os.system("cls")
-					subprocess.run(["C:\\Program Files\\qemu\\qemu-system-x86_64","-hda","build\\hdd.qcow2","-boot","d","-cdrom","build\\os.iso","-m","4G"])
+					subprocess.run(["C:\\Program Files\\qemu\\qemu-system-x86_64","-hda","build\\hdd.qcow2","-boot","d","-cdrom","build\\os.iso","-m","4G","-net","none"])

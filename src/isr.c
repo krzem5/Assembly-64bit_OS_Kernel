@@ -2,6 +2,7 @@
 #include <isr.h>
 #include <idt.h>
 #include <screen.h>
+#include <fatal_error.h>
 extern void _asm_isr0(void);
 extern void _asm_isr1(void);
 extern void _asm_isr2(void);
@@ -89,7 +90,7 @@ void _handle_isr(exception_registers_t* r){
 		print_laddr(r->rip);
 		print(", Error Code = ");
 		print_uint32(r->ec);
-		for (;;);
+		asm_halt_cpu();
 	}
 }
 
