@@ -341,7 +341,7 @@ section .text
 		or eax, 0x100
 		wrmsr
 		mov eax, cr0
-		or eax, 0x80000000
+		or eax, 0x80000001
 		mov cr0, eax
 		lgdt [gdt64_pointer]
 		jmp gdt64_code:_start_64
