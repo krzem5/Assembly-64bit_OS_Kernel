@@ -161,6 +161,7 @@ _asm_isr8:
 	iretq
 
 
+
 _asm_isr9:
 	cli
 	push byte 0
@@ -179,12 +180,14 @@ _asm_isr10:
 	iretq
 
 
+
 _asm_isr11:
 	cli
 	push byte 0x0b
 	call _isr_h_call
 	add rsp, 8
 	iretq
+
 
 
 _asm_isr12:
@@ -195,6 +198,7 @@ _asm_isr12:
 	iretq
 
 
+
 _asm_isr13:
 	cli
 	push byte 0x0d
@@ -203,12 +207,14 @@ _asm_isr13:
 	iretq
 
 
+
 _asm_isr14:
 	cli
 	push byte 0x0e
 	call _isr_h_call
 	add rsp, 8
 	iretq
+
 
 
 _asm_isr15:
